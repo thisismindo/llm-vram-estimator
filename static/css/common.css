@@ -1,0 +1,55 @@
+:root {
+  --sufficient-color: #2196f3;
+  --moderate-color: #4CAF50;
+  --high-color: #ff9800;
+  --insufficient-color: #f44336;
+}
+
+.circle-progress-bar-container {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin: 20px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circle-progress-bar {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+}
+
+.circle-progress-bar-inner {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--progress-color, #4CAF50) var(--progress, 0%),
+    #a7a7a7 var(--progress, 0%)
+  );
+}
+
+.circle-progress-bar-text {
+  position: absolute;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.sufficient {
+  color: var(--sufficient-color);
+}
+.moderate {
+  color: var(--moderate-color);
+}
+.high {
+  color: var(--high-color);
+}
+.insufficient {
+  color: var(--insufficient-color);
+}

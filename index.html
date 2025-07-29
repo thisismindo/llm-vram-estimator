@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="https://github.com/thisismindo" />
+    <title>LLM vRAM Estimator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="static/js/config.js"></script>
+    <link rel="stylesheet" href="static/css/common.css">
+  </head>
+  <body class="bg-gray-100 text-gray-900">
+    <div class="max-w-5xl mx-auto p-6">
+      <h1 class="text-3xl font-bold mb-4">LLM vRAM Estimator</h1>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="space-y-4">
+          <div>
+            <label class="block font-medium">Model</label>
+            <select id="model" class="w-full p-2 border rounded"></select>
+          </div>
+          <div>
+            <label class="block font-medium">Inference Quantization</label>
+            <select
+              id="quantization"
+              class="w-full p-2 border rounded"
+            ></select>
+          </div>
+          <div>
+            <label class="block font-medium">KV Cache Quantization</label>
+            <select
+              id="kvQuantization"
+              class="w-full p-2 border rounded"
+            ></select>
+          </div>
+          <div>
+            <label class="block font-medium">GPU</label>
+            <select id="gpu" class="w-full p-2 border rounded"></select>
+          </div>
+          <div>
+            <label class="block font-medium"># of GPUs: <span id="numGPUsVal">1</span></label>
+            <input
+              id="numGPUs"
+              type="range"
+              min="1"
+              max="500"
+              step="1"
+              value="1"
+              class="w-full"
+            />
+          </div>
+          <div>
+            <label class="block font-medium">Batch Size: <span id="batchSizeVal">1</span></label>
+            <input
+              id="batchSize"
+              type="range"
+              min="1"
+              max="128"
+              step="1"
+              value="1"
+              class="w-full"
+            />
+          </div>
+          <div>
+            <label class="block font-medium">Sequence Length: <span id="sequenceLengthVal">1024</span></label>
+            <input
+              id="sequenceLength"
+              type="range"
+              min="128"
+              max="32768"
+              step="128"
+              value="1024"
+              class="w-full"
+            />
+          </div>
+          <div>
+            <label class="block font-medium">Concurrent Users: <span id="concurrentUsersVal">1</span></label>
+            <input
+              id="concurrentUsers"
+              type="range"
+              min="1"
+              max="100"
+              step="1"
+              value="1"
+              class="w-full"
+            />
+          </div>
+        </div>
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-xl font-semibold mb-4">
+            Performance & Memory Results
+          </h2>
+          <div class="circle-progress-bar-container">
+            <div class="circle-progress-bar-inner" id="vramProgressBar"></div>
+            <div class="circle-progress-bar-text" id="vramUsage"></div>
+          </div>
+          <p class="text-center mb-2">
+            <span id="vramStatus" class="font-medium"></span>
+          </p>
+          <p class="text-center text-lg font-bold" id="totalUsedVRAM"></p>
+          <p class="text-center text-gray-600" id="vramDetails"></p>
+          <p class="text-center mt-4">
+            <span id="sharedPerUserVRAM"></span>
+          </p>
+          <p class="text-center">
+              Total for <span id="totalConcurrentUsers">1</span> concurrent users
+          </p>
+          <p class="text-center mt-4">
+            Generation Speed: <span id="generationSpeed">N/A</span>
+          </p>
+          <p class="text-center">
+            Total Throughput: <span id="totalThroughput">N/A</span>
+          </p>
+          <p class="text-center">
+            Per-User Speed: <span id="perUserSpeed">N/A</span>
+          </p>
+          <p class="text-center text-sm text-gray-500">
+            Profile: Optimized for Lowest Latency
+          </p>
+          <hr class="my-4" />
+          <p class="text-lg font-bold" id="summaryModel"></p>
+          <p>
+            <strong>Weights:</strong> <span id="summaryQuant"></span>
+          </p>
+          <p>
+            <strong>KV Cache:</strong> <span id="summaryKV"></span>
+          </p>
+          <p>
+            <strong>Attention Structure:</strong>
+            <span id="summaryAttention">MLA</span>
+          </p>
+          <p>
+            <strong>Positional Embeddings:</strong>
+            <span id="summaryEmbeddings">rotary</span>
+          </p>
+          <p class="mt-2 text-sm text-gray-500">Mode: Inference | Batch: <span id="summaryBatch">1</span> | Devices: <span id="summaryDevices">1</span> | Users: <span id="summaryUsers">1</span></p>
+        </div>
+      </div>
+    </div>
+    <script src="static/js/app.js"></script>
+  </body>
+</html>
