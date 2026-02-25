@@ -15,6 +15,76 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="space-y-4">
           <div>
+            <label class="block font-medium">Motherboard</label>
+            <select id="motherboard" class="w-full p-2 border rounded"></select>
+          </div>
+          <div>
+            <label class="block font-medium">CPU</label>
+            <select id="cpu" class="w-full p-2 border rounded"></select>
+          </div>
+          <div id="numCPUsControl">
+            <label class="block font-medium"># of CPUs: <span id="numCPUsVal">1</span></label>
+            <input
+              id="numCPUs"
+              type="range"
+              min="1"
+              max="4"
+              step="1"
+              value="1"
+              class="w-full"
+            />
+          </div>
+          <div id="systemRamControls" class="space-y-4">
+            <div>
+              <label class="block font-medium">RAM per Stick</label>
+              <select id="ramAmount" class="w-full p-2 border rounded"></select>
+            </div>
+            <div>
+              <label class="block font-medium"># of RAM Sticks (DIMMs): <span id="numDIMMsVal">2</span></label>
+              <input
+                id="numDIMMs"
+                type="range"
+                min="1"
+                max="24"
+                step="1"
+                value="2"
+                class="w-full"
+              />
+            </div>
+            <div>
+              <label class="block font-medium">RAM Type</label>
+              <select id="ramType" class="w-full p-2 border rounded"></select>
+            </div>
+          </div>
+          <div>
+            <label class="block font-medium">GPU</label>
+            <select id="gpu" class="w-full p-2 border rounded"></select>
+          </div>
+          <div id="numGPUsControl">
+            <label class="block font-medium"># of GPUs: <span id="numGPUsVal">1</span></label>
+            <input
+              id="numGPUs"
+              type="range"
+              min="1"
+              max="8"
+              step="1"
+              value="1"
+              class="w-full"
+            />
+          </div>
+          <div id="numUnitsControl">
+            <label class="block font-medium"># of Units: <span id="numUnitsVal">1</span></label>
+            <input
+              id="numUnits"
+              type="range"
+              min="1"
+              max="16"
+              step="1"
+              value="1"
+              class="w-full"
+            />
+          </div>
+          <div>
             <label class="block font-medium">Model</label>
             <select id="model" class="w-full p-2 border rounded"></select>
           </div>
@@ -31,22 +101,6 @@
               id="kvQuantization"
               class="w-full p-2 border rounded"
             ></select>
-          </div>
-          <div>
-            <label class="block font-medium">GPU</label>
-            <select id="gpu" class="w-full p-2 border rounded"></select>
-          </div>
-          <div>
-            <label class="block font-medium"># of GPUs: <span id="numGPUsVal">1</span></label>
-            <input
-              id="numGPUs"
-              type="range"
-              min="1"
-              max="500"
-              step="1"
-              value="1"
-              class="w-full"
-            />
           </div>
           <div>
             <label class="block font-medium">Batch Size: <span id="batchSizeVal">1</span></label>
@@ -116,6 +170,21 @@
           <p class="text-center text-sm text-gray-500">
             Profile: Optimized for Lowest Latency
           </p>
+          <div id="systemRamSection">
+            <hr class="my-4" />
+            <h3 class="text-lg font-semibold mb-2">System RAM</h3>
+            <p class="text-center">
+              Required: <span id="systemRamRequired">N/A</span>
+            </p>
+            <p class="text-center">
+              Available: <span id="systemRamAvailable">N/A</span>
+            </p>
+            <p class="text-center">
+              <span id="systemRamStatus" class="font-medium"></span>
+            </p>
+            <p class="text-center text-sm" id="cpuOffloadInfo"></p>
+            <p class="text-center text-sm text-yellow-600 font-medium" id="ramCapWarning"></p>
+          </div>
           <hr class="my-4" />
           <p class="text-lg font-bold" id="summaryModel"></p>
           <p>
@@ -132,9 +201,19 @@
             <strong>Positional Embeddings:</strong>
             <span id="summaryEmbeddings">rotary</span>
           </p>
-          <p class="mt-2 text-sm text-gray-500">Mode: Inference | Batch: <span id="summaryBatch">1</span> | Devices: <span id="summaryDevices">1</span> | Users: <span id="summaryUsers">1</span></p>
+          <p>
+            <strong>Motherboard:</strong> <span id="summaryMotherboard"></span>
+          </p>
+          <p>
+            <strong>CPU:</strong> <span id="summaryCPU"></span>
+          </p>
+          <p>
+            <strong>System RAM:</strong> <span id="summaryRAM"></span>
+          </p>
+          <p class="mt-2 text-sm text-gray-500">Mode: Inference | Batch: <span id="summaryBatch">1</span> | Devices: <span id="summaryDevices">1</span> | Units: <span id="summaryUnits">1</span> | Users: <span id="summaryUsers">1</span></p>
         </div>
       </div>
+      <p class="mt-6 text-center text-xs text-gray-400">All values are estimates based on simplified model characteristics and may differ from real-world results. Actual VRAM usage, system RAM requirements, and inference speeds vary depending on model architecture, inference framework, driver optimizations, and system overhead. Use this tool for guidance and comparative analysis, not as a precise benchmark.</p>
     </div>
     <script src="static/js/app.js"></script>
   </body>

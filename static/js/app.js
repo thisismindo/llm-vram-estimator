@@ -3,10 +3,17 @@ const config = window.config;
   const quantEl = document.getElementById("quantization");
   const kvQuantEl = document.getElementById("kvQuantization");
   const gpuEl = document.getElementById("gpu");
+  const motherboardEl = document.getElementById("motherboard");
   const numGPUsEl = document.getElementById("numGPUs");
+  const cpuEl = document.getElementById("cpu");
+  const numCPUsEl = document.getElementById("numCPUs");
+  const ramAmountEl = document.getElementById("ramAmount");
+  const numDIMMsEl = document.getElementById("numDIMMs");
+  const ramTypeEl = document.getElementById("ramType");
   const batchSizeEl = document.getElementById("batchSize");
   const sequenceLengthEl = document.getElementById("sequenceLength");
   const concurrentUsersEl = document.getElementById("concurrentUsers");
+  const numUnitsEl = document.getElementById("numUnits");
 
   const vramUsage = document.getElementById("vramUsage");
   const vramStatus = document.getElementById("vramStatus");
@@ -19,6 +26,11 @@ const config = window.config;
   const sharedPerUserVRAM = document.getElementById("sharedPerUserVRAM");
   const totalConcurrentUsersEl = document.getElementById("totalConcurrentUsers");
 
+  const systemRamRequired = document.getElementById("systemRamRequired");
+  const systemRamAvailable = document.getElementById("systemRamAvailable");
+  const systemRamStatus = document.getElementById("systemRamStatus");
+  const cpuOffloadInfo = document.getElementById("cpuOffloadInfo");
+  const ramCapWarning = document.getElementById("ramCapWarning");
 
   const summaryModel = document.getElementById("summaryModel");
   const summaryQuant = document.getElementById("summaryQuant");
@@ -28,6 +40,11 @@ const config = window.config;
   const summaryBatch = document.getElementById("summaryBatch");
   const summaryDevices = document.getElementById("summaryDevices");
   const summaryUsers = document.getElementById("summaryUsers");
+  const summaryUnits = document.getElementById("summaryUnits");
+  const summaryCPU = document.getElementById("summaryCPU");
+  const summaryRAM = document.getElementById("summaryRAM");
+  const summaryMotherboard = document.getElementById("summaryMotherboard");
+  const systemRamControls = document.getElementById("systemRamControls");
 
   const updateText = (id, val) =>
     (document.getElementById(id).textContent = val);
@@ -44,6 +61,124 @@ const config = window.config;
   fillSelect(quantEl, config.QUANTIZATION);
   fillSelect(kvQuantEl, config.KV_CACHE_QUANTIZATION);
   fillSelect(gpuEl, Object.keys(config.GPUS));
+  fillSelect(motherboardEl, Object.keys(config.MOTHERBOARDS));
+  fillSelect(cpuEl, Object.keys(config.CPUS));
+  fillSelect(ramAmountEl, config.RAM_AMOUNTS.map((v) => v + " GB"));
+  fillSelect(ramTypeEl, Object.keys(config.RAM_TYPES));
+
+  function fillSelectFiltered(select, options) {
+    const current = select.value;
+    select.innerHTML = "";
+    options.forEach((opt) => {
+      const o = document.createElement("option");
+      o.value = o.textContent = opt;
+      select.appendChild(o);
+    });
+    if (options.includes(current)) {
+      select.value = current;
+    } else if (options.length > 0) {
+      select.value = options[0];
+    }
+  }
+
+  function onMotherboardChange() {
+    const mbName = motherboardEl.value;
+    const mb = config.MOTHERBOARDS[mbName];
+    if (!mb) return;
+
+    const isAppleBoard = mb.socket === "Apple";
+
+    const compatibleCPUs = mb.supportedCPUs
+      ? Object.keys(config.CPUS).filter((name) => mb.supportedCPUs.includes(name))
+      : Object.keys(config.CPUS).filter((name) => config.CPUS[name].socket === mb.socket);
+    fillSelectFiltered(cpuEl, compatibleCPUs);
+
+    if (mb.supportedGPUs) {
+      fillSelectFiltered(gpuEl, mb.supportedGPUs);
+    } else {
+      const nonAppleGPUs = Object.keys(config.GPUS).filter((name) => !name.startsWith("Apple"));
+      fillSelectFiltered(gpuEl, nonAppleGPUs);
+    }
+
+    numCPUsEl.max = mb.maxCPUs;
+    if (parseInt(numCPUsEl.value) > mb.maxCPUs) numCPUsEl.value = mb.maxCPUs;
+    document.getElementById("numCPUsControl").style.display = (mb.maxCPUs <= 1) ? "none" : "";
+
+    numGPUsEl.max = mb.maxGPUs;
+    if (parseInt(numGPUsEl.value) > mb.maxGPUs) numGPUsEl.value = mb.maxGPUs;
+    document.getElementById("numGPUsControl").style.display = (mb.maxGPUs <= 1) ? "none" : "";
+
+    if (isAppleBoard) {
+      document.getElementById("numUnitsControl").style.display = "none";
+      numUnitsEl.value = "1";
+      systemRamControls.style.display = "none";
+    } else {
+      document.getElementById("numUnitsControl").style.display = "";
+      systemRamControls.style.display = "";
+
+      const compatibleRAM = config.RAM_AMOUNTS
+        .filter((v) => v <= mb.maxRAMPerDIMM)
+        .map((v) => v + " GB");
+      fillSelectFiltered(ramAmountEl, compatibleRAM);
+
+      const compatibleRAMTypes = mb.supportedRAMTypes.filter(
+        (t) => t in config.RAM_TYPES
+      );
+      fillSelectFiltered(ramTypeEl, compatibleRAMTypes);
+
+      numDIMMsEl.max = mb.maxDIMMs;
+      if (parseInt(numDIMMsEl.value) > mb.maxDIMMs) numDIMMsEl.value = mb.maxDIMMs;
+    }
+
+    calculate();
+  }
+
+  function getGpuPerformanceTier(gpuName) {
+    if (/NVIDIA [BH]\d{3}/.test(gpuName)) return 3.0;
+    if (/MI3[0-5]\dX/.test(gpuName)) return 3.0;
+    if (/TPU v[67]/.test(gpuName)) return 3.0;
+    if (/TPU v5/.test(gpuName)) return 2.5;
+    if (/Trainium/.test(gpuName)) return 2.5;
+    if (/NVIDIA A[18]00/.test(gpuName)) return 2.0;
+    if (/NVIDIA A[34]0 /.test(gpuName)) return 2.0;
+    if (/NVIDIA L40/.test(gpuName)) return 2.0;
+    if (/Gaudi/.test(gpuName)) return 2.0;
+    if (/RTX A[456]000/.test(gpuName)) return 1.5;
+    if (/RTX PRO/.test(gpuName)) return 1.5;
+    if (/NVIDIA A2 /.test(gpuName)) return 1.5;
+    if (/NVIDIA A16/.test(gpuName)) return 1.5;
+    if (/RTX [45]0[89]0/.test(gpuName)) return 1.2;
+    if (/Radeon/.test(gpuName)) return 0.9;
+    if (/Apple/.test(gpuName)) return 0.6;
+    if (/Arc B5[78]0/.test(gpuName)) return 0.7;
+    return 1.0;
+  }
+
+  function getGpuBandwidthGBs(gpuName) {
+    if (/NVIDIA [BH]\d{3}/.test(gpuName)) return 3000;
+    if (/MI3[0-5]\dX/.test(gpuName)) return 2400;
+    if (/TPU/.test(gpuName)) return 2400;
+    if (/Trainium/.test(gpuName)) return 1800;
+    if (/NVIDIA A[18]00/.test(gpuName)) return 1800;
+    if (/NVIDIA A[34]0 /.test(gpuName)) return 700;
+    if (/NVIDIA L40/.test(gpuName)) return 700;
+    if (/Gaudi/.test(gpuName)) return 1800;
+    if (/RTX A[456]000/.test(gpuName)) return 700;
+    if (/RTX PRO/.test(gpuName)) return 700;
+    if (/RTX [45]0[89]0/.test(gpuName)) return 900;
+    if (/RTX [345]0[567]0/.test(gpuName)) return 450;
+    if (/Radeon/.test(gpuName)) return 500;
+    if (/Apple/.test(gpuName)) return 400;
+    if (/Arc/.test(gpuName)) return 350;
+    return 450;
+  }
+
+  function isMoEModel(model) {
+    const modelInfo = config.MODEL_ATTENTION[model];
+    if (modelInfo && modelInfo.attention === "MoE") return true;
+    if (/\d+x\d+B/.test(model)) return true;
+    return false;
+  }
 
   function calculateDynamicPerformance(
     model,
@@ -51,7 +186,8 @@ const config = window.config;
     gpu,
     batchSize,
     sequenceLength,
-    kvQuant
+    kvQuant,
+    quant
   ) {
     let speed = 0;
     let throughput = 0;
@@ -73,6 +209,24 @@ const config = window.config;
         speed *= 1.05;
         throughput *= 1.05;
       }
+
+      let weightQuantMultiplier;
+      if (quant === "FP32") weightQuantMultiplier = 0.5;
+      else if (quant === "FP8" || quant === "INT8") weightQuantMultiplier = 1.3;
+      else if (quant === "4-bit (QLoRA)") weightQuantMultiplier = 1.6;
+      else weightQuantMultiplier = 1.0;
+      speed *= weightQuantMultiplier;
+      throughput *= weightQuantMultiplier;
+
+      if (sequenceLength > 1024) {
+        const seqLenFactor = 1.0 / (1 + 0.15 * Math.log2(sequenceLength / 1024));
+        speed *= seqLenFactor;
+        throughput *= seqLenFactor;
+      }
+
+      const gpuTier = getGpuPerformanceTier(gpu);
+      speed *= gpuTier;
+      throughput *= gpuTier;
     } else {
       speed = 1;
       throughput = 1;
@@ -87,22 +241,50 @@ const config = window.config;
     const kvq = kvQuantEl.value;
     const gpu = gpuEl.value;
     const numGPUs = parseInt(numGPUsEl.value);
+    const cpu = cpuEl.value;
+    const numCPUs = parseInt(numCPUsEl.value);
+    const ramPerStick = parseInt(ramAmountEl.value);
+    const numDIMMs = parseInt(numDIMMsEl.value);
+    const ramType = ramTypeEl.value;
     const batchSize = parseInt(batchSizeEl.value);
     const sequenceLength = parseInt(sequenceLengthEl.value);
     const concurrentUsers = parseInt(concurrentUsersEl.value);
+    const numUnits = parseInt(numUnitsEl.value);
 
     updateText("numGPUsVal", numGPUs);
+    updateText("numCPUsVal", numCPUs);
+    updateText("numDIMMsVal", numDIMMs);
     updateText("batchSizeVal", batchSize);
     updateText("sequenceLengthVal", sequenceLength);
+    updateText("numUnitsVal", numUnits);
     updateText("concurrentUsersVal", concurrentUsers);
     updateText("totalConcurrentUsers", concurrentUsers);
 
+    const motherboard = motherboardEl.value;
+    const mb = config.MOTHERBOARDS[motherboard];
+    const isAppleBoard = mb && mb.socket === "Apple";
+    const ramPerStickSafe = isNaN(ramPerStick) ? 0 : ramPerStick;
+    const numDIMMsSafe = isNaN(numDIMMs) ? 0 : numDIMMs;
+    const rawTotalRAM = ramPerStickSafe * numDIMMsSafe;
+    const maxTotalRAM = (mb && mb.maxTotalRAM) ? mb.maxTotalRAM : Infinity;
+    const perUnitRAM = Math.min(rawTotalRAM, maxTotalRAM);
+    const totalSystemRAMAvailable = perUnitRAM * numUnits;
+
+    if (ramCapWarning) {
+      if (rawTotalRAM > maxTotalRAM) {
+        ramCapWarning.textContent = `Board caps RAM at ${maxTotalRAM} GB (${rawTotalRAM} GB configured)`;
+      } else {
+        ramCapWarning.textContent = "";
+      }
+    }
 
     const baseModelSizeGB_FP16 = config.MODEL_SIZES[model] || 0;
 
     let bytesPerParamWeights;
     if (quant === "FP32") bytesPerParamWeights = 4;
+    else if (quant === "BF16") bytesPerParamWeights = 2;
     else if (quant === "FP16") bytesPerParamWeights = 2;
+    else if (quant === "FP8") bytesPerParamWeights = 1;
     else if (quant === "INT8") bytesPerParamWeights = 1;
     else if (quant === "4-bit (QLoRA)") bytesPerParamWeights = 0.5;
     else bytesPerParamWeights = 2;
@@ -123,8 +305,22 @@ const config = window.config;
 
     let kvCacheGB_per_single_sequence = 0;
     if (bytesPerParamKV > 0) {
-      const baseKVCacheGB_SL1024_FP16 = 1.51;
-      kvCacheGB_per_single_sequence = (baseKVCacheGB_SL1024_FP16 / 1024) * sequenceLength * (bytesPerParamKV / 2);
+      let kvBase;
+      if (isMoEModel(model)) {
+        if (numModelParametersBillion <= 25) kvBase = 0.15;
+        else if (numModelParametersBillion <= 100) kvBase = 0.25;
+        else if (numModelParametersBillion <= 400) kvBase = 0.4;
+        else kvBase = 0.6;
+      } else {
+        const modelInfo = config.MODEL_ATTENTION[model];
+        const attentionType = modelInfo ? modelInfo.attention : "GQA";
+        let attentionMultiplier;
+        if (attentionType === "MHA") attentionMultiplier = 3.5;
+        else if (attentionType === "MQA") attentionMultiplier = 0.25;
+        else attentionMultiplier = 1.0;
+        kvBase = 0.0625 * Math.sqrt(numModelParametersBillion / 2) * attentionMultiplier;
+      }
+      kvCacheGB_per_single_sequence = kvBase * (sequenceLength / 1024) * (bytesPerParamKV / 2);
     }
 
     const totalActiveSequences = batchSize * concurrentUsers;
@@ -134,7 +330,7 @@ const config = window.config;
     const totalUsedVRAMValue = totalSharedVRAM + totalPerUserKVCacheGB;
 
 
-    const totalAvailableVRAM = config.GPUS[gpu] * numGPUs;
+    const totalAvailableVRAM = config.GPUS[gpu] * numGPUs * numUnits;
 
     let percentageUsage = 0;
     if (totalAvailableVRAM > 0) {
@@ -161,8 +357,8 @@ const config = window.config;
       statusClass = "moderate";
     }
     else {
-        statusText = "moderate";
-        statusClass = "moderate";
+        statusText = "sufficient";
+        statusClass = "sufficient";
     }
     vramStatus.textContent = statusText;
     vramStatus.className = `font-medium ${statusClass}`;
@@ -175,16 +371,72 @@ const config = window.config;
     totalUsedVRAM.textContent = `${totalUsedVRAMValue.toFixed(
       2
     )} GB`;
-    vramDetails.textContent = `of ${totalAvailableVRAM} GB Unified Memory(${numGPUs} x ${config.GPUS[gpu]} GB Devices)`;
+    const isAppleSilicon = /Apple/.test(gpu);
+    const systemRamSection = document.getElementById("systemRamSection");
+
+    if (isAppleSilicon) {
+      vramDetails.textContent = `of ${totalAvailableVRAM} GB Unified Memory (${numGPUs} x ${config.GPUS[gpu]} GB Devices)`;
+      systemRamSection.style.display = "none";
+    } else {
+      const vramLabel = numUnits > 1
+        ? `of ${totalAvailableVRAM} GB VRAM (${numUnits} units x ${numGPUs} GPUs x ${config.GPUS[gpu]} GB)`
+        : `of ${totalAvailableVRAM} GB VRAM (${numGPUs} x ${config.GPUS[gpu]} GB Devices)`;
+      vramDetails.textContent = vramLabel;
+      systemRamSection.style.display = "";
+    }
 
     sharedPerUserVRAM.textContent = `${totalSharedVRAM.toFixed(2)} GB shared + ${kvCacheGB_per_single_sequence.toFixed(2)} GB per user`;
+
+    const cpuInfo = config.CPUS[cpu];
+    const ramBandwidthPerChannel = config.RAM_TYPES[ramType] || 48.0;
+
+    if (!isAppleSilicon) {
+      const frameworkOverhead = 3;
+      const modelLoadingBuffer = modelWeightsGB * 0.1;
+      const cpuOffloadGB = Math.max(0, totalUsedVRAMValue - totalAvailableVRAM);
+      const totalSystemRAMRequired = frameworkOverhead + modelLoadingBuffer + cpuOffloadGB;
+
+      systemRamRequired.textContent = `${totalSystemRAMRequired.toFixed(2)} GB`;
+      const ramAvailLabel = numUnits > 1
+        ? `${totalSystemRAMAvailable} GB (${numUnits} units x ${perUnitRAM} GB)`
+        : `${totalSystemRAMAvailable} GB`;
+      systemRamAvailable.textContent = ramAvailLabel;
+
+      if (totalSystemRAMRequired > totalSystemRAMAvailable) {
+        systemRamStatus.textContent = "Insufficient system RAM";
+        systemRamStatus.className = "font-medium insufficient";
+      } else if (totalSystemRAMRequired > totalSystemRAMAvailable * 0.8) {
+        systemRamStatus.textContent = "Tight — consider more RAM";
+        systemRamStatus.className = "font-medium high";
+      } else {
+        systemRamStatus.textContent = "Sufficient";
+        systemRamStatus.className = "font-medium sufficient";
+      }
+
+      if (cpuOffloadGB > 0) {
+        cpuOffloadInfo.textContent = `${cpuOffloadGB.toFixed(2)} GB offloaded to CPU`;
+      } else {
+        cpuOffloadInfo.textContent = "No CPU offloading needed";
+      }
+    }
 
     summaryModel.textContent = model;
     summaryQuant.textContent = quant;
     summaryKV.textContent = kvq;
     summaryBatch.textContent = batchSize;
     summaryDevices.textContent = numGPUs;
+    summaryUnits.textContent = numUnits;
     summaryUsers.textContent = concurrentUsers;
+    summaryMotherboard.textContent = motherboard;
+    summaryCPU.textContent = `${numCPUs > 1 ? numCPUs + "x " : ""}${cpu}`;
+    if (isAppleBoard) {
+      summaryRAM.textContent = "Unified Memory (shared with GPU)";
+    } else {
+      const ramTotalLabel = rawTotalRAM > maxTotalRAM
+        ? `${totalSystemRAMAvailable} GB usable of ${rawTotalRAM} GB installed`
+        : `${totalSystemRAMAvailable} GB total`;
+      summaryRAM.textContent = `${numDIMMsSafe} x ${ramPerStickSafe} GB ${ramType} (${ramTotalLabel})`;
+    }
 
     const modelInfo = config.MODEL_ATTENTION[model];
     if (modelInfo) {
@@ -195,14 +447,29 @@ const config = window.config;
       summaryEmbeddings.textContent = "rotary";
     }
 
-    const { speed, throughput } = calculateDynamicPerformance(
+    let { speed, throughput } = calculateDynamicPerformance(
       model,
-      numGPUs,
+      numGPUs * numUnits,
       gpu,
       batchSize,
       sequenceLength,
-      kvq
+      kvq,
+      quant
     );
+
+    if (!isAppleSilicon && totalUsedVRAMValue > totalAvailableVRAM) {
+      const cpuOffloadGB = totalUsedVRAMValue - totalAvailableVRAM;
+      const offloadFraction = cpuOffloadGB / totalUsedVRAMValue;
+      const totalMemChannels = (cpuInfo ? cpuInfo.memChannels : 2) * numCPUs * numUnits;
+      const cpuBandwidthGBs = totalMemChannels * ramBandwidthPerChannel;
+      const gpuBandwidthGBs = getGpuBandwidthGBs(gpu) * numGPUs * numUnits;
+      const bandwidthRatio = cpuBandwidthGBs / gpuBandwidthGBs;
+      const speedMultiplier = 1 / ((1 - offloadFraction) + offloadFraction / bandwidthRatio);
+      speed *= speedMultiplier;
+      throughput *= speedMultiplier;
+      const reductionPercent = ((1 - speedMultiplier) * 100).toFixed(1);
+      cpuOffloadInfo.textContent = `${cpuOffloadGB.toFixed(2)} GB offloaded to CPU — speed reduced by ${reductionPercent}%`;
+    }
 
     if (speed > 0) {
       generationSpeed.textContent = `~${speed.toFixed(1)} tok/sec (~${(1000 / speed).toFixed(1)} ms/token latency)`;
@@ -219,12 +486,20 @@ const config = window.config;
     }
   }
 
+  motherboardEl.addEventListener("change", onMotherboardChange);
+
   [
     modelEl,
     quantEl,
     kvQuantEl,
     gpuEl,
     numGPUsEl,
+    numUnitsEl,
+    cpuEl,
+    numCPUsEl,
+    ramAmountEl,
+    numDIMMsEl,
+    ramTypeEl,
     batchSizeEl,
     sequenceLengthEl,
     concurrentUsersEl,
@@ -233,11 +508,14 @@ const config = window.config;
   });
 
   window.onload = () => {
+    motherboardEl.value = "Apple Mac Studio";
+    onMotherboardChange();
     modelEl.value = "Llama 4 Maverick";
     quantEl.value = "FP16";
     kvQuantEl.value = "FP16 / BF16";
     gpuEl.value = "Apple M3 Ultra (512GB)";
     numGPUsEl.value = "3";
+    numUnitsEl.value = "1";
     batchSizeEl.value = "2";
     sequenceLengthEl.value = "2048";
     concurrentUsersEl.value = "4";
