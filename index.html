@@ -185,6 +185,25 @@
             <p class="text-center text-sm" id="cpuOffloadInfo"></p>
             <p class="text-center text-sm text-yellow-600 font-medium" id="ramCapWarning"></p>
           </div>
+          <div id="powerSection">
+            <hr class="my-4" />
+            <h3 class="text-lg font-semibold mb-2">Power Consumption</h3>
+            <p class="text-center">GPU: <span id="powerGPU">N/A</span></p>
+            <p class="text-center">CPU: <span id="powerCPU">N/A</span></p>
+            <p class="text-center">RAM: <span id="powerRAM">N/A</span></p>
+            <p class="text-center">Base System: <span id="powerBase">N/A</span></p>
+            <p class="text-center font-bold">Per Unit Total: <span id="powerPerUnit">N/A</span></p>
+            <p class="text-center" id="powerClusterRow">
+              Cluster Total (<span id="powerClusterUnits">1</span> units): <span id="powerCluster">N/A</span>
+            </p>
+            <p class="text-center text-sm font-medium" id="powerRecommendation"></p>
+            <p class="text-center text-xs text-gray-500 mt-1" id="powerNecNote"></p>
+          </div>
+          <div id="storageSection">
+            <hr class="my-4" />
+            <h3 class="text-lg font-semibold mb-2">Model Storage</h3>
+            <p class="text-center">Disk Space: <span id="storageDiskSpace">N/A</span></p>
+          </div>
           <hr class="my-4" />
           <p class="text-lg font-bold" id="summaryModel"></p>
           <p>
@@ -209,6 +228,12 @@
           </p>
           <p>
             <strong>System RAM:</strong> <span id="summaryRAM"></span>
+          </p>
+          <p>
+            <strong>Power Draw:</strong> <span id="summaryPower"></span>
+          </p>
+          <p>
+            <strong>Model Disk Size:</strong> <span id="summaryStorage"></span>
           </p>
           <p class="mt-2 text-sm text-gray-500">Mode: Inference | Batch: <span id="summaryBatch">1</span> | Devices: <span id="summaryDevices">1</span> | Units: <span id="summaryUnits">1</span> | Users: <span id="summaryUsers">1</span></p>
         </div>

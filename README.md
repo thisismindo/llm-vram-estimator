@@ -21,6 +21,12 @@ This is a web-based tool designed to estimate the VRAM (Video RAM) usage, system
 
 * **System RAM Estimation:** Shows minimum system RAM required for model loading, framework overhead, and CPU offloading.
 
+* **Power Consumption Estimation:** Estimates total power draw per unit and across cluster, with GPU TDP, CPU TDP, and base system power. Apple SoC boards show a single combined wattage. Cluster totals show kW conversion for large deployments.
+
+* **Power Connection Recommendation:** Recommends the minimum electrical circuit type needed for the configured build using the 80% NEC continuous load derating rule, from standard 120V/15A outlets up to 208V/60A three-phase circuits.
+
+* **Model Storage Estimation:** Shows the disk space required to store model weights at the selected quantization level, with TB + GB display for large models.
+
 * **CPU Offloading:** When VRAM is insufficient, estimates how much memory overflows to CPU and the resulting speed penalty based on CPU memory bandwidth vs GPU bandwidth.
 
 * **Batch Size:** Adjust the batch size, representing the number of sequences processed concurrently in a single inference pass.

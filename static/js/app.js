@@ -46,6 +46,20 @@ const config = window.config;
   const summaryMotherboard = document.getElementById("summaryMotherboard");
   const systemRamControls = document.getElementById("systemRamControls");
 
+  const powerGPUEl = document.getElementById("powerGPU");
+  const powerCPUEl = document.getElementById("powerCPU");
+  const powerRAMEl = document.getElementById("powerRAM");
+  const powerBaseEl = document.getElementById("powerBase");
+  const powerPerUnitEl = document.getElementById("powerPerUnit");
+  const powerClusterEl = document.getElementById("powerCluster");
+  const powerClusterUnitsEl = document.getElementById("powerClusterUnits");
+  const powerClusterRowEl = document.getElementById("powerClusterRow");
+  const storageDiskSpaceEl = document.getElementById("storageDiskSpace");
+  const powerRecommendationEl = document.getElementById("powerRecommendation");
+  const powerNecNoteEl = document.getElementById("powerNecNote");
+  const summaryPowerEl = document.getElementById("summaryPower");
+  const summaryStorageEl = document.getElementById("summaryStorage");
+
   const updateText = (id, val) =>
     (document.getElementById(id).textContent = val);
 
@@ -235,6 +249,24 @@ const config = window.config;
     return { speed: speed, throughput: throughput };
   }
 
+  function getCircuitRecommendation(watts) {
+    const tiers = [
+      { capacity: 1440, rawCapacity: 1800, label: "120V / 15A standard outlet" },
+      { capacity: 1920, rawCapacity: 2400, label: "120V / 20A outlet" },
+      { capacity: 3840, rawCapacity: 4800, label: "240V / 20A single-phase" },
+      { capacity: 5760, rawCapacity: 7200, label: "240V / 30A single-phase" },
+      { capacity: 8645, rawCapacity: 10806, label: "208V / 30A three-phase" },
+      { capacity: 14408, rawCapacity: 18010, label: "208V / 50A three-phase" },
+    ];
+    for (const tier of tiers) {
+      if (watts <= tier.capacity) {
+        const pct = ((watts / tier.capacity) * 100).toFixed(0);
+        return { ...tier, usage: pct };
+      }
+    }
+    return { capacity: null, rawCapacity: null, usage: null, label: "208V / 60A three-phase or higher" };
+  }
+
   function calculate() {
     const model = modelEl.value;
     const quant = quantEl.value;
@@ -388,7 +420,8 @@ const config = window.config;
     sharedPerUserVRAM.textContent = `${totalSharedVRAM.toFixed(2)} GB shared + ${kvCacheGB_per_single_sequence.toFixed(2)} GB per user`;
 
     const cpuInfo = config.CPUS[cpu];
-    const ramBandwidthPerChannel = config.RAM_TYPES[ramType] || 48.0;
+    const ramTypeInfo = config.RAM_TYPES[ramType];
+    const ramBandwidthPerChannel = ramTypeInfo ? ramTypeInfo.bandwidth : 48.0;
 
     if (!isAppleSilicon) {
       const frameworkOverhead = 3;
@@ -419,6 +452,86 @@ const config = window.config;
         cpuOffloadInfo.textContent = "No CPU offloading needed";
       }
     }
+
+    const gpuTdp = config.GPU_TDP[gpu] || 0;
+    const ramPowerPerDIMM = ramTypeInfo ? ramTypeInfo.powerPerDIMM : 5;
+    if (isAppleSilicon) {
+      const socName = gpu.replace(/ \(\d+GB\)$/, "");
+      const totalSocPower = gpuTdp * numGPUs;
+      powerGPUEl.textContent = numGPUs > 1
+        ? `${totalSocPower} W (${numGPUs} x ${gpuTdp} W ${socName})`
+        : `${gpuTdp} W (${socName} SoC)`;
+      powerCPUEl.textContent = "included in SoC";
+      powerRAMEl.textContent = "included in SoC";
+      powerBaseEl.textContent = "included in SoC";
+      powerPerUnitEl.textContent = `${totalSocPower} W`;
+      powerClusterRowEl.style.display = "none";
+      summaryPowerEl.textContent = numGPUs > 1
+        ? `${totalSocPower} W (${numGPUs} x ${socName})`
+        : `${gpuTdp} W (${socName} SoC)`;
+      const socRec = getCircuitRecommendation(totalSocPower);
+      if (socRec.capacity) {
+        powerRecommendationEl.textContent = `Recommended: ${socRec.label} (${socRec.usage}% of ${socRec.capacity.toLocaleString()}W safe limit)`;
+        powerNecNoteEl.textContent = `Safe limit is 80% of circuit capacity (${socRec.rawCapacity.toLocaleString()}W) per NEC continuous load rule — do not exceed`;
+      } else {
+        powerRecommendationEl.textContent = `Recommended: ${socRec.label}`;
+        powerNecNoteEl.textContent = "Exceeds standard circuit tiers — consult a licensed electrician";
+      }
+    } else {
+      const gpuPowerW = gpuTdp * numGPUs;
+      const cpuTdp = cpuInfo ? cpuInfo.tdp : 0;
+      const cpuPowerW = cpuTdp * numCPUs;
+      const ramPowerW = ramPowerPerDIMM * numDIMMsSafe;
+      const basePowerW = mb ? (mb.basePower || 0) : 0;
+      const perUnitPowerW = gpuPowerW + cpuPowerW + ramPowerW + basePowerW;
+      const clusterPowerW = perUnitPowerW * numUnits;
+
+      powerGPUEl.textContent = numGPUs > 1 ? `${gpuPowerW} W (${numGPUs} x ${gpuTdp} W)` : `${gpuPowerW} W`;
+      powerCPUEl.textContent = numCPUs > 1 ? `${cpuPowerW} W (${numCPUs} x ${cpuTdp} W)` : `${cpuPowerW} W`;
+      powerRAMEl.textContent = numDIMMsSafe > 1 ? `${ramPowerW} W (${numDIMMsSafe} x ${ramPowerPerDIMM} W)` : `${ramPowerW} W`;
+      powerBaseEl.textContent = `${basePowerW} W`;
+      powerPerUnitEl.textContent = `${perUnitPowerW} W`;
+
+      if (numUnits > 1) {
+        powerClusterRowEl.style.display = "";
+        powerClusterUnitsEl.textContent = numUnits;
+        const clusterLabel = clusterPowerW >= 1000 ? `${clusterPowerW} W (${(clusterPowerW / 1000).toFixed(2)} kW)` : `${clusterPowerW} W`;
+        powerClusterEl.textContent = clusterLabel;
+        summaryPowerEl.textContent = clusterLabel + ` (${numUnits} units)`;
+        const unitRec = getCircuitRecommendation(perUnitPowerW);
+        const clusterRec = getCircuitRecommendation(clusterPowerW);
+        const unitCapStr = unitRec.capacity ? ` ${unitRec.usage}% of ${unitRec.capacity.toLocaleString()}W` : "";
+        const clusterCapStr = clusterRec.capacity ? ` ${clusterRec.usage}% of ${clusterRec.capacity.toLocaleString()}W` : "";
+        powerRecommendationEl.textContent = `Per Unit: ${unitRec.label}${unitCapStr ? ` (${unitCapStr})` : ""} | Cluster: ${clusterRec.label}${clusterCapStr ? ` (${clusterCapStr})` : ""}`;
+        const noteRef = clusterRec.capacity ? clusterRec : unitRec;
+        if (noteRef.capacity) {
+          powerNecNoteEl.textContent = `Safe limit is 80% of circuit capacity per NEC continuous load rule — do not exceed`;
+        } else {
+          powerNecNoteEl.textContent = "Cluster exceeds standard circuit tiers — consult a licensed electrician";
+        }
+      } else {
+        powerClusterRowEl.style.display = "none";
+        summaryPowerEl.textContent = `${perUnitPowerW} W`;
+        const rec = getCircuitRecommendation(perUnitPowerW);
+        if (rec.capacity) {
+          powerRecommendationEl.textContent = `Recommended: ${rec.label} (${rec.usage}% of ${rec.capacity.toLocaleString()}W safe limit)`;
+          powerNecNoteEl.textContent = `Safe limit is 80% of circuit capacity (${rec.rawCapacity.toLocaleString()}W) per NEC continuous load rule — do not exceed`;
+        } else {
+          powerRecommendationEl.textContent = `Recommended: ${rec.label}`;
+          powerNecNoteEl.textContent = "Exceeds standard circuit tiers — consult a licensed electrician";
+        }
+      }
+    }
+
+    const diskSpaceGB = modelWeightsGB;
+    if (diskSpaceGB >= 1024) {
+      storageDiskSpaceEl.textContent = `~${(diskSpaceGB / 1024).toFixed(2)} TB (${diskSpaceGB.toFixed(0)} GB)`;
+    } else {
+      storageDiskSpaceEl.textContent = `~${diskSpaceGB.toFixed(2)} GB`;
+    }
+    summaryStorageEl.textContent = diskSpaceGB >= 1024
+      ? `~${(diskSpaceGB / 1024).toFixed(2)} TB`
+      : `~${diskSpaceGB.toFixed(2)} GB`;
 
     summaryModel.textContent = model;
     summaryQuant.textContent = quant;
